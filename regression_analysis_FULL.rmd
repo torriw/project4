@@ -1,0 +1,114 @@
+---
+title: "Untitled"
+output: html_document
+date: '2022-10-05'
+---
+```{r pt 2: create string of samples from ld2 analysis }
+ld2_samples<-c('CCA209','CCA236','CCA237','CCA238','CCA239','CCA240','CCA242','CCA246','CCA250','CCA255','CCA256','CCA258','CCA259','CCA262','CCA265','CCA267','CCA268','CCA270','CCA271','CCA275','CCA277','CCA302','CCA303','CCA306','CCA308','CCA309','CCA310','CCA311','CCA312','CCA313','CCA317','CCA319','CCA320','CCA321','CCA323','CCA324','CCA325','CCA328','CCA332','CCA333','JWM1044','JWM1054','JWM3324','JWM3442','JWM3583','JWM6201','JWM6204','JWM6206','JWM6208','JWM6209','JWM6234','JWM6236','JWM6238','JWM6240','JWM6241','JWM6242','JWM6243','JWM6248','JWM6249','JWM6251','JWM6255','JWM6257','JWM6266','JWM6267','JWM6270','JWM6285','JWM6286','JWM6301','JWM6314','JWM6332','JWM6337','JWM6343','JWM6344','JWM6346','JWM6348','JWM6350','JWM6354','JWM6375','JWM6380','JWM6400','JWM6405','JWM6410','JWM6414','JWM6415','JWM6431','JWM6494','JWM6495','JWM6500','JWM6503','JWM6513','JWM6525','JWM6527','JWM6534','JWM6535','JWM6547','JWM6553','JWM6556','JWM6566','JWM6578','JWM6579','JWM6621','JWM6649','JWM6652','JWM6665','JWM6670','JWM6676','JWM6679','JWM6681','JWM6682','JWM6688','JWM6691','JWM6718','JWM6719','JWM6790','SMS115','SMS119','SMS123','SMS128','SMS137','SMS139','SMS142','SMS146','SMS154','SMS155','SMS158','SMS168','SMS170','SMS176','SMS178','SMS179','SMS186','SMS203','SMS212','SMS221','SMS227','SMS229','SMS238','SMS239','SMS240','SMS241','SMS244','SMS247','SMS265','SMS277','SMS279','SMS282','SMS283','SMS290','SMS291','SMS292','SMS293','SMS294','SMS295','SMS298','SMS308','SMS310','SMS311','SMS317','SMS322','SMS323','SMS325','SMS326','SMS328','SMS329','SMS332','SMS334','SMS335','SMS343','SMS346','SMS348')
+
+
+```
+
+```{r pt 2: read in excel sheet of modified genotypes of all snps }
+ld2_modified_genotypes<-read.csv("C:/Users/torriw/Desktop/ld_analysis/ld_2.0/ld2_modified_genotypes.csv")
+neuro<- read.csv("C:/Users/torriw/Desktop/ld_analysis/ld_2.0/neuro_file.csv")
+
+```
+
+```{r pt 2: regression analysis}
+
+genotype_match<-subset(ld2_modified_genotypes,ID %in% ld2_samples) 
+genotype_match<-genotype_match[,-1] #remove first row of sample ids
+
+neuro_id_match<-subset(neuro,IID %in% ld2_samples, select = c(IID,briefpage,briefpnegscor,briefsrnegscor,cbclanxdisordt,conners_adi_met_sc,conners_adi_se,conners_ef_p,conners_ef_t,conners_hyim_se,conners_lp_se, crtpercomtrials,cvltperseverrz,cvltsemclusratioz,cvltsrlclusratioz,cwiihibswitchcorerr,dasiigcaperc,dasiigcat,dasiimatrt,dasiinverbreasperc,dasiirecdesageeq,dasiirecdesperc,dasiirecdest,dasiiseqquanreasabil,dasiiseqquanreasageeq,dasiiseqquanreasperc,dasiiseqquanreast,dasiiverbalperc,dasiiverbsimageeq,dasiiverbsimperc,dasiiverbsimset,dasiiverbsimt,dasiiworddefset,discage,dmspercor0z,dmstotcor0z,iedtoterrstg5,msmnerr,n2inhnamcombss,n2mddconspaconsss,n2mddelspass,n2nmfrerectotss,n2nmfrecuerectotss,sctpblankstare,sctpdaydream,srtpercomtrials,srttotcomerr,swmbtwnerr8boxz,swmmntimefirstres6,vabsiipdomvscore,vabsiipexpageeqmon,vabsiipextervscore,vabsiipgrmotskiladptlev,vabsiipgrmotskilvscore,vabsiipintervscore,vabsiitadptbehcompadptlev,vfletvscatscale,wiscdigspanfwlong,ysrage))
+
+neuro_id_match<-neuro_id_match[,-1] #remove first row of sample ids
+
+#create single df of both data sets
+snp_behavior<-cbind(neuro_id_match,genotype_match)
+x<-snp_behavior[,1:58] #behaviors
+y<-snp_behavior[,59:81] #snps
+
+# snp ~ behavior
+
+reg_data <- function(yvar, xdf) {
+    #iterate through each column of x
+    df_list <- lapply(seq_along(xdf), function(i) {
+      m <- summary(lm(yvar ~ x[,i]))        # run model
+
+      data.frame(
+         Variable = names(x)[i],            # print variable name
+         Intercept = m$coefficients[1,1],   # intercept
+         Coefficient = m$coefficients[2,1], # coefficient
+         P_val = m$coefficients[2,4],       # P-value
+         R_square = m$r.squared             # R-squared    
+      )
+    })
+
+   return(do.call(rbind, df_list))
+}
+
+#iterate through each column of y
+model_dfs <- lapply(y, function(col) reg_data(col, x))             
+
+#output txt file
+sink("C:/Users/torriw/Desktop/ld_analysis/ld_2.0/full_reg_analysis.txt"); print(model_dfs); sink()
+```
+
+```{r calculating q values from estimated p values}
+regression_spreadsheet<- read.csv("C:/Users/torriw/Desktop/ld_analysis/ld_2.0/sig_reg_statistics.csv")
+
+#removing na's
+regression_spreadsheet_na<-na.omit(regression_spreadsheet)
+pvals<-regression_spreadsheet_na$Pval
+#checking assumptions
+options(repr.plot.width=2.5, repr.plot.height=2.5)
+hist(pvals, nclass=20)
+
+#histogram shows overabundance of low pvalues with uniformity at higher pvalues 
+```
+
+```{r creating the q value object }
+qobj<-qvalue(p=pvals, fdr.level=0.1, lambda=0, pi0.method="smoother")
+summary(qobj)
+```
+```{r visualize q data}
+options(repr.plot.width=6, repr.plot.height=5)
+plot(qobj)
+```
+
+```{r create df of variables }
+qval_df<-data.frame(qobj$qvalues,qobj$significant)
+regression_spreadsheet<-cbind(regression_spreadsheet_na,qval_df)
+write.csv(regression_spreadsheet,"C:/Users/torriw/Desktop/ld_analysis/ld_2.0/sig_reg_statistics_qvals.csv")
+```
+
+```{r regression plots of top 6 }
+#rs3199966
+png("rs3199966_dasiigcaperc_plot.png", units = "in", width = 7, height = 7, res = 600)
+ggplot(snp_behavior,aes(x=rs3199966,y=dasiigcaperc))+geom_point()+geom_smooth()+ggtitle("Behavioral Measurement \n by Genotype")+theme(plot.title = element_text(hjust = 0.5))+xlab("Genotype (rs3199966)")
+dev.off()
+
+png("rs3199966_dasiigcat_plot.png", units = "in", width = 7, height = 7, res = 600)
+ggplot(snp_behavior,aes(x=rs3199966,y=dasiigcat))+geom_point()+geom_smooth()+ggtitle("Behavioral Measurement \n by Genotype")+theme(plot.title = element_text(hjust = 0.5))+xlab("Genotype (rs3199966)")
+dev.off()
+
+png("rs3199966_dasiirecdesperc_plot.png", units = "in", width = 7, height = 7, res = 600)
+ggplot(snp_behavior,aes(x=rs3199966,y=dasiirecdesperc))+geom_point()+geom_smooth()+ggtitle("Behavioral Measurement \n by Genotype")+theme(plot.title = element_text(hjust = 0.5))+xlab("Genotype (rs3199966)")
+dev.off()
+
+png("rs3199966_dasiirecdest_plot.png", units = "in", width = 7, height = 7, res = 600)
+ggplot(snp_behavior,aes(x=rs3199966,y=dasiirecdest))+geom_point()+geom_smooth()+ggtitle("Behavioral Measurement \n by Genotype")+theme(plot.title = element_text(hjust = 0.5))+xlab("Genotype (rs3199966)")
+dev.off()
+
+#rs2771040
+png("rs2771040_dasiirecdesperc_plot.png", units = "in", width = 7, height = 7, res = 600)
+ggplot(snp_behavior,aes(x=rs2771040,y=dasiirecdesperc))+geom_point()+geom_smooth()+ggtitle("Behavioral Measurement \n by Genotype")+theme(plot.title = element_text(hjust = 0.5))+xlab("Genotype (rs2771040)")
+dev.off()
+
+png("rs2771040_dasiirecdest_plot.png", units = "in", width = 7, height = 7, res = 600)
+ggplot(snp_behavior,aes(x=rs2771040,y=dasiirecdest))+geom_point()+geom_smooth()+ggtitle("Behavioral Measurement \n by Genotype")+theme(plot.title = element_text(hjust = 0.5))+xlab("Genotype (rs2771040)")
+dev.off()
+```
+
+```
